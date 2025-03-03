@@ -12,7 +12,7 @@ from imutils.video import VideoStream, FPS
 # -----------------------------
 # CONFIGURATION
 # -----------------------------
-TARGET_PERSON = "Dominic"  # The name of the person to detect
+TARGET_PERSON = "Dominic"  # Change to match stored name in encodings.pickle
 ENCODINGS_PATH = "encodings.pickle"
 IMAGE_SAVE_PATH = "/home/pi/Desktop/Face_Images"
 
@@ -20,7 +20,7 @@ EMAIL_SENDER = "eyepicamera@gmail.com"
 EMAIL_PASSWORD = "iqdb mqob quiy ludd"  # Consider using environment variables
 EMAIL_RECEIVER = ["dsavarino@gwmail.gwu.edu"]
 
-# Ensure the save directory exists
+# Ensure save directory exists
 if not os.path.exists(IMAGE_SAVE_PATH):
     os.makedirs(IMAGE_SAVE_PATH)
 
@@ -43,7 +43,7 @@ fps = FPS().start()
 # -----------------------------
 def send_email(image_path):
     """Sends an email with the captured face image as an attachment and stops the program."""
-    print(f"[DEBUG] Attempting to send email with image: {image_path}")
+    print(f"[INFO] Sending email with image: {image_path}")
 
     if not os.path.exists(image_path):
         print(f"[ERROR] Image file does not exist: {image_path}")
@@ -70,9 +70,7 @@ def send_email(image_path):
 
         context = ssl.create_default_context()
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context) as server:
-            print("[DEBUG] Connecting to email server...")
             server.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            print("[DEBUG] Logged into email server...")
             server.send_message(msg)
 
         print(f"[INFO] Email sent successfully with {image_path}")
@@ -85,6 +83,8 @@ def send_email(image_path):
 # -----------------------------
 # FACE RECOGNITION LOOP
 # -----------------------------
+previously_detected = set()  # Stores previously detected names to avoid spamming prints
+
 while True:
     # Grab a frame, resize for speed
     frame = vs.read()
@@ -112,12 +112,14 @@ while True:
 
         detected_names.add(name)
 
-    # Debugging print statements
-    print(f"[DEBUG] Detected Faces: {detected_names}")
+    # Only print when a new person is detected
+    if detected_names != previously_detected:
+        print(f"[INFO] Detected Faces: {detected_names}")
+        previously_detected = detected_names.copy()
 
     # If the target person is detected, take a picture and send an email
     if TARGET_PERSON in detected_names:
-        print(f"[INFO] {TARGET_PERSON} detected! Waiting 1 second before capturing image...")
+        print(f"[INFO] {TARGET_PERSON} detected! Capturing image in 1 second...")
         time.sleep(1)  # Small delay before capturing the image
         
         # Save the image
@@ -125,10 +127,8 @@ while True:
         img_name = f"{TARGET_PERSON}_detected_{timestamp}.jpg"
         img_path = os.path.join(IMAGE_SAVE_PATH, img_name)
 
-        print(f"[DEBUG] Attempting to save image to: {img_path}")
-
         if cv2.imwrite(img_path, frame):
-            print(f"[INFO] Image successfully saved at {img_path}")
+            print(f"[INFO] Image saved at {img_path}")
             send_email(img_path)  # Send the email and exit
         else:
             print(f"[ERROR] Failed to save image at {img_path}")
